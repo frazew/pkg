@@ -139,7 +139,7 @@ func Test_Push_Pull(t *testing.T) {
 			pullOpts:   []PullOption{WithPullLayerType(LayerTypeTarball), WithPullLayerIndex(1)},
 			pushFn: func(url string, path string) error {
 				artifact := filepath.Join(t.TempDir(), "artifact.tgz")
-				err := build(artifact, path, nil)
+				err := build(artifact, path, nil, true)
 				if err != nil {
 					return err
 				}
@@ -177,7 +177,7 @@ func Test_Push_Pull(t *testing.T) {
 			pullOpts:   []PullOption{WithPullLayerType(LayerTypeTarball), WithPullLayerIndex(1)},
 			pushFn: func(url string, path string) error {
 				artifact := filepath.Join(t.TempDir(), "artifact.tgz")
-				err := build(artifact, path, nil)
+				err := build(artifact, path, nil, true)
 				if err != nil {
 					return err
 				}

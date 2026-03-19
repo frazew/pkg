@@ -96,7 +96,7 @@ func TestBuild(t *testing.T) {
 			tmpDir := t.TempDir()
 			artifactPath := filepath.Join(tmpDir, "files.tar.gz")
 
-			err := build(artifactPath, tt.path, tt.ignorePath)
+			err := build(artifactPath, tt.path, tt.ignorePath, true)
 			if tt.expectErr {
 				g.Expect(err).To(HaveOccurred())
 				return

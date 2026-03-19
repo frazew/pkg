@@ -150,7 +150,7 @@ func createLayer(path string, layerType LayerType, opts layerOptions) (gcrv1.Lay
 		}
 		defer os.RemoveAll(tmpDir)
 		tmpFile := filepath.Join(tmpDir, "artifact.tgz")
-		if err := build(tmpFile, path, opts.ignorePaths); err != nil {
+		if err := build(tmpFile, path, opts.ignorePaths, true); err != nil {
 			return nil, err
 		}
 		return tarball.LayerFromFile(tmpFile, tarball.WithMediaType(ociMediaType), tarball.WithCompressedCaching)

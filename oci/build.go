@@ -33,10 +33,10 @@ import (
 // Build archives the given directory as a tarball to the given local path.
 // While archiving, any environment specific data (for example, the user and group name) is stripped from file headers.
 func (c *Client) Build(artifactPath, sourceDir string, ignorePaths []string) (err error) {
-	return build(artifactPath, sourceDir, ignorePaths)
+	return build(artifactPath, sourceDir, ignorePaths, true)
 }
 
-func build(artifactPath, sourceDir string, ignorePaths []string) (err error) {
+func build(artifactPath, sourceDir string, ignorePaths []string, ignoreFileModes bool) (err error) {
 	absDir, err := filepath.Abs(sourceDir)
 	if err != nil {
 		return err
@@ -101,6 +101,9 @@ func build(artifactPath, sourceDir string, ignorePaths []string) (err error) {
 			}
 			// Normalize file path so it works on windows
 			header.Name = filepath.ToSlash(relFilePath)
+			if ignoreFileModes {
+				header.Mode = 0o755
+			}
 		}
 
 		// Remove any environment specific data.
@@ -111,6 +114,9 @@ func build(artifactPath, sourceDir string, ignorePaths []string) (err error) {
 		header.ModTime = time.Time{}
 		header.AccessTime = time.Time{}
 		header.ChangeTime = time.Time{}
+		if ignoreFileModes {
+			header.Mode = 0o644
+		}
 
 		if err := tw.WriteHeader(header); err != nil {
 			return err
