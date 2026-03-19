@@ -37,34 +37,6 @@ func (c *Client) Diff(ctx context.Context, url, dir string, ignorePaths []string
 		return fmt.Errorf("invalid URL: %w", err)
 	}
 
-	tmpBuildDir, err := os.MkdirTemp("", "ocibuild")
-	if err != nil {
-		return fmt.Errorf("creating temp build dir failed: %w", err)
-	}
-	defer os.RemoveAll(tmpBuildDir)
-
-	tmpFile := filepath.Join(tmpBuildDir, "artifact.tgz")
-
-	if err := build(tmpFile, dir, ignorePaths); err != nil {
-		return fmt.Errorf("building artifact failed: %w", err)
-	}
-
-	f, err := os.Open(tmpFile)
-	if err != nil {
-		return fmt.Errorf("opening artifact failed: %w", err)
-	}
-	defer f.Close()
-
-	fstat, err := f.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to get file stats: %w", err)
-	}
-
-	h1 := sha256.New()
-	if _, err := io.Copy(h1, f); err != nil {
-		return fmt.Errorf("calculating artifact hash failed: %w", err)
-	}
-
 	img, err := crane.Pull(url, c.optionsWithContext(ctx)...)
 	if err != nil {
 		return err
@@ -91,9 +63,55 @@ func (c *Client) Diff(ctx context.Context, url, dir string, ignorePaths []string
 		return fmt.Errorf("failed to get layer size: %w", err)
 	}
 
-	if hex.EncodeToString(h1.Sum(nil)) != h.Hex || fstat.Size() != s {
-		return fmt.Errorf("the remote artifact contents differs from the local one")
+	ignoreFileModes := true
+	for range 2 {
+		h1, size, err := computeLocalArtifactSha256Sum(dir, ignorePaths, ignoreFileModes)
+		if err != nil {
+			return fmt.Errorf("failed to build and compute local artifact checksum: %w", err)
+		}
+		// If there's a diff, and we're ignoring file modes, check again without ignoring them to preserve
+		// backwards-compatibility. Otherwise, break early: there's no diff!
+		if h1 != h.Hex || size != s {
+			if !ignoreFileModes {
+				return fmt.Errorf("the remote artifact contents differs from the local one")
+			}
+			ignoreFileModes = false
+		} else {
+			break
+		}
 	}
 
 	return nil
+}
+
+func computeLocalArtifactSha256Sum(dir string, ignorePaths []string, ignoreFileModes bool) (string, int64, error) {
+	tmpBuildDir, err := os.MkdirTemp("", "ocibuild")
+	if err != nil {
+		return "", 0, fmt.Errorf("creating temp build dir failed: %w", err)
+	}
+	defer os.RemoveAll(tmpBuildDir)
+
+	tmpFile := filepath.Join(tmpBuildDir, "artifact.tgz")
+
+	if err := build(tmpFile, dir, ignorePaths, ignoreFileModes); err != nil {
+		return "", 0, fmt.Errorf("building artifact failed: %w", err)
+	}
+
+	f, err := os.Open(tmpFile)
+	if err != nil {
+		return "", 0, fmt.Errorf("opening artifact failed: %w", err)
+	}
+	defer f.Close()
+
+	fstat, err := f.Stat()
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get file stats: %w", err)
+	}
+
+	h1 := sha256.New()
+	if _, err := io.Copy(h1, f); err != nil {
+		return "", 0, fmt.Errorf("calculating artifact hash failed: %w", err)
+	}
+
+	return hex.EncodeToString(h1.Sum(nil)), fstat.Size(), nil
 }
